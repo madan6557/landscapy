@@ -62,7 +62,7 @@ def create_curve_trunk(name='Stylized Tree', gesture='GENTLE'):
     return ob
 
 
-def setup_tree_modifiers(ob, preset='OAK', leaf_col_name=None):
+def setup_tree_modifiers(ob, preset='OAK', leaf_col_name=None, seed=None):
     """Attach and configure LP_TreeEngine Geometry Nodes on the curve object."""
     node_group = library.append_node_group('LP_TreeEngine')
     if not node_group:
@@ -132,6 +132,8 @@ def setup_tree_modifiers(ob, preset='OAK', leaf_col_name=None):
 
     if leaf_col:
         set_socket('LeafCollection', leaf_col)
+        set_socket('Leaf Variant Count', max(1, library.collection_variant_count(leaf_col)))
+    set_socket('Variation Seed', int(ob.get('landscapy_seed', 1) if seed is None else seed))
 
     ob['landscapy_type'] = 'TREE'
     ob['landscapy_preset'] = preset

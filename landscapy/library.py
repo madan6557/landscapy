@@ -8,21 +8,26 @@ from pathlib import Path
 LIBRARY_PATH = Path(__file__).parent / 'assets' / 'landscapy_library.blend'
 
 FOLIAGE_COLLECTIONS = [
-    ('LeafSolid', 'Solid Clumps (Low Poly)', 'Faceted chunky stylized leaf clusters'),
-    ('LeafDome', 'Anime Dome Puff', 'Hemispherical puffy cloud foliage for anime trees'),
-    ('LeafPalm', 'Palm Frond Blade', '1 continuous notched card per dahan with V-fold crease'),
-    ('LeafBanana', 'Banana Broad Blade', 'Broad lamina blade with petiole and midrib fold'),
+    ('LeafSolid', 'Solid Clumps', 'Faceted chunky, art-directed foliage clumps'),
+    ('LeafDome', 'Dome Puffs', 'Layered silhouette puffs for stylized canopy crowns'),
+    ('LeafPalm', 'Pinnate Palm Cards', 'Continuous notched blades with a raised central fold'),
+    ('LeafBanana', 'Broad Lamina Cards', 'Continuous broad leaves with a shaped, folded silhouette'),
 ]
 
 FLOWER_OBJECTS = [
     ('LP_Flower_Blue', 'Blue Flower', '4-triangle quad flower with sunken valley center'),
     ('LP_Flower_Red', 'Red Flower', '4-triangle quad flower with sunken valley center'),
     ('LP_Flower_White', 'White Flower', '4-triangle quad flower with sunken valley center'),
+    ('LP_Flower_Violet', 'Violet Flower', 'Original four-triangle valley flower'),
+    ('LP_Flower_Amber', 'Amber Flower', 'Original four-triangle valley flower'),
 ]
 
 FRUIT_OBJECTS = [
     ('LP_BananaBunch', 'Banana Bunch', 'Yellow banana finger tiers with maroon terminal bud'),
     ('LP_CoconutCluster', 'Coconut Cluster', 'Green coconut cluster at crown collar'),
+    ('LP_AppleCluster', 'Apple Cluster', 'Small axillary fruit cluster'),
+    ('LP_GrapeCluster', 'Grape Cluster', 'Tapered hanging fruit cluster'),
+    ('LP_MangoPanicle', 'Mango Panicle', 'Elongated hanging fruit cluster'),
 ]
 
 PROP_OBJECTS = [
@@ -30,6 +35,10 @@ PROP_OBJECTS = [
     ('LP_HollowTrunk', 'Hollow Trunk', 'Decayed hollow stump with exposed wood rim'),
     ('LP_Mushroom', 'Stylized Mushroom', 'Cap + gills + stem with glow support'),
     ('LP_ShelfMushroom', 'Tree Shelf Mushroom', 'Bracket oyster mushroom that clings to tree bark'),
+    ('LP_Rock_Rounded', 'Rounded Rock', 'Original faceted low-poly boulder variation'),
+    ('LP_Rock_Shard', 'Shard Rock', 'Original angular faceted rock variation'),
+    ('LP_MushroomCluster', 'Glowing Mushroom Cluster', 'Three original cap-and-stem forms with cap emission'),
+    ('LP_OysterCluster', 'Oyster Mushroom Cluster', 'Layered bracket mushroom forms for tree surfaces'),
 ]
 
 TREE_PRESETS = [
@@ -40,6 +49,13 @@ TREE_PRESETS = [
     ('BONSAI', 'Mountain Bonsai', 'Artfully twisted crooked trunk with low-poly foliage pads'),
     ('DEAD_TREE', 'Dead Bare Tree', 'Old skeletal trunk and tapering bare branches with no foliage'),
 ]
+
+LIBRARY_ASSET_COUNTS = {
+    'LeafSolid': 4,
+    'LeafDome': 3,
+    'LeafPalm': 3,
+    'LeafBanana': 3,
+}
 
 
 def ensure_library_loaded():
@@ -73,6 +89,15 @@ def append_collection(collection_name):
     if col and col.name not in bpy.context.scene.collection.children:
         bpy.context.scene.collection.children.link(col)
     return col
+
+
+def collection_variant_count(collection):
+    """Return the number of direct mesh/curve choices exposed by Collection Info."""
+    if isinstance(collection, str):
+        collection = bpy.data.collections.get(collection)
+    if not collection:
+        return 0
+    return sum(obj.type in {'MESH', 'CURVE'} for obj in collection.objects)
 
 
 def append_object(object_name):

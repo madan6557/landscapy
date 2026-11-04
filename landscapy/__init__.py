@@ -1830,8 +1830,15 @@ class LPSpawnLibraryProp(bpy.types.Operator):
                ('LP_HollowTrunk','Hollow Trunk','Decayed hollow stump with exposed wood rim'),
                ('LP_Mushroom','Stylized Mushroom','Cap + gills + stem with glow support'),
                ('LP_ShelfMushroom','Tree Shelf Mushroom','Bracket oyster mushroom for tree bark'),
+               ('LP_MushroomCluster','Glowing Mushroom Cluster','Three original cap-and-stem forms with cap emission'),
+               ('LP_OysterCluster','Oyster Mushroom Cluster','Layered bracket mushrooms for tree surfaces'),
+               ('LP_Rock_Rounded','Rounded Rock','Original faceted boulder variation'),
+               ('LP_Rock_Shard','Shard Rock','Original angular rock variation'),
                ('LP_BananaBunch','Banana Bunch','Yellow finger tiers with maroon bud'),
-               ('LP_CoconutCluster','Coconut Cluster','Coconut sphere cluster')],
+               ('LP_CoconutCluster','Coconut Cluster','Coconut sphere cluster'),
+               ('LP_AppleCluster','Apple Cluster','Small axillary fruit cluster'),
+               ('LP_GrapeCluster','Grape Cluster','Tapered hanging fruit cluster'),
+               ('LP_MangoPanicle','Mango Panicle','Elongated hanging fruit cluster')],
         default='LP_Rock')
     def execute(self,context):
         from . import library
