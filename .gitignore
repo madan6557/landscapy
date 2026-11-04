@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Blender temporary / backup files
+*.blend1
+*.blend2
+.temp/
+recovery/
+Landscapy_Bakes/
+*.log
+
+# Test sandbox caches
+tests/install_sandbox/
+tests/install_config/
+tests/Landscapy_Bakes/
+
+# Zip distributions
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
