@@ -428,6 +428,12 @@ class LPSettings(bpy.types.PropertyGroup):
     opacity_min: FloatProperty(default=1, min=0, max=1)
     opacity_max: FloatProperty(default=1, min=0, max=1)
     alpha_mode: EnumProperty(items=enum(['Cutout','Soft']), default='Cutout')
+    stylized_normals: BoolProperty(name='Stylized Normals', default=True,
+        description='Direct foliage card normals outwards from canopy mass for soft volumetric stylized shading')
+    normal_bend_factor: FloatProperty(name='Normal Spherical Blend', default=.85, min=0, max=1,
+        description='1.0 gives full spherical fluffy shading; 0.0 retains geometric card normals')
+    normal_up_bias: FloatProperty(name='Normal Upward Bias', default=.25, min=0, max=1,
+        description='Tilts foliage normals slightly upwards towards sunlight')
     card: EnumProperty(items=enum(['Quad','Valley']), default='Quad')
     valley: FloatProperty(default=.08, min=-1, max=1,update=live_distribution_changed)
     bend: FloatProperty(default=.1, min=-3, max=3,update=live_distribution_changed)
@@ -469,7 +475,7 @@ class LPSettings(bpy.types.PropertyGroup):
     glow: EnumProperty(items=enum(['None','Under','Cap','All']), default='None')
     glow_strength: FloatProperty(default=3, min=0, max=100)
     glow_color: FloatVectorProperty(size=3, subtype='COLOR', default=(.1,.7,1), min=0, max=1)
-    material_style: EnumProperty(items=enum(['Smooth','Bands','Speckles','Grain','Moss','Cracks']), default='Grain')
+    material_style: EnumProperty(items=enum(['Smooth','Bands','Speckles','Grain','Moss','Cracks']), default='Smooth')
     snap_offset: FloatProperty(default=.02)
     snap_mode: EnumProperty(name='Snap Mode',items=[('DOWN','Ray Down','Raycast toward world down'),('CUSTOM','Custom Ray','Raycast in a chosen world direction'),('NEAREST','Nearest Surface','Find the nearest evaluated triangle')],default='DOWN')
     snap_direction: FloatVectorProperty(name='Ray Direction (World)',size=3,default=(0,0,-1))
@@ -708,6 +714,25 @@ class Builder:
                             ('lp_card_phase',self.card_phase)]:
             attr=me.attributes.new(name,'FLOAT','POINT')
             for item,value in zip(attr.data,values): item.value=value
+        s=getattr(ob,'landscapy',None)
+        use_stylized_normals=getattr(s,'stylized_normals',True) if s else True
+        if use_stylized_normals and any(self.card_flags):
+            for p,card in zip(me.polygons,self.card_flags):
+                if card: p.use_smooth=True
+            card_verts={vi for p,card in zip(me.polygons,self.card_flags) if card for vi in p.vertices}
+            card_coords=[me.vertices[i].co for i in card_verts]
+            center=(sum(card_coords,Vector())/len(card_coords)-Vector((0,0,.45))) if card_coords else Vector((0,0,2.5))
+            blend_fac=getattr(s,'normal_bend_factor',.85) if s else .85
+            up_bias=getattr(s,'normal_up_bias',.25) if s else .25
+            normals=[]
+            for idx,v in enumerate(me.vertices):
+                if idx in card_verts:
+                    diff=v.co-center; rad=diff.normalized() if diff.length>1e-4 else Vector((0,0,1))
+                    normals.append(tuple((rad*blend_fac+Vector((0,0,up_bias))).normalized()))
+                else:
+                    normals.append(tuple(v.normal))
+            try: me.normals_split_custom_set_from_vertices(normals)
+            except Exception: pass
 
 def branch_wind_fields(owner,branch_ids,branch_ts):
     """Bake each branch's inherited bend into two phase coefficients per vertex."""
@@ -940,7 +965,8 @@ def tree(builder,s,ob,live_frond_anchors=None,live_bough=False):
         curves=tree_guides(s.controller,ob); trunk=curves[0]; guides=curves[1:]
     if s.branch_guides=='MANUAL' and not guides:
         raise ValueError('Curve Only requires a curve controller with a trunk spline and at least one branch spline')
-    builder.tube(trunk,s.radius,10,1-s.taper,branch_id=0,branch_level=0)
+    trunk_collar=.45 if trunk_form in {'PALM','PSEUDOSTEM'} else .35 if trunk_form in {'CONIFER','TWISTED_CONIFER','BAOBAB'} else 0
+    builder.tube(trunk,s.radius,10,1-s.taper,collar=trunk_collar,branch_id=0,branch_level=0)
     graph=[]; pts=[]; lobes=[]; anchors=[]; primary_tips=[]; radius=s.cluster_radius
     structured=s.pattern in fronds.PATTERNS and not (s.controller and s.controller.type=='MESH')
     willow_sprays=(trunk_form=='WILLOW' and s.pattern=='Cloud' and s.branch_crown and
@@ -1090,11 +1116,11 @@ def tree(builder,s,ob,live_frond_anchors=None,live_bough=False):
                 # Successive leaves open outward as they mature. Keep the
                 # outer arches long and the newest leaves upright and short.
                 if trunk_form=='PSEUDOSTEM':
-                    reach_factor=(.53+.60*min(1.,age*1.46))*rng.uniform(.94,1.06)
-                    rise=.29+2.27*u**2.15+rng.uniform(-.045,.045)
+                    reach_factor=(.68+.42*min(1.,age*1.35))*rng.uniform(.95,1.05)
+                    rise=1.05+1.85*u**1.45+rng.uniform(-.045,.045)
                 else:
-                    reach_factor=(.65+.56*math.sin(math.pi*(.08+.70*age))**.72)*rng.uniform(.95,1.05)
-                    rise=.17+1.60*u**2.35+rng.uniform(-.04,.04)
+                    reach_factor=(.75+.40*math.sin(math.pi*(.12+.72*age))**.72)*rng.uniform(.95,1.05)
+                    rise=.35+1.35*u**1.9+rng.uniform(-.04,.04)
             elif conifer:
                 # Conifers grow in visible whorls. Each whorl is level around
                 # the leader. Branches are distributed around each tier rather
@@ -1105,7 +1131,7 @@ def tree(builder,s,ob,live_frond_anchors=None,live_bough=False):
                 ordinal=members.index(i)
                 tier_offset=.014*math.sin(tier*2.4+crown_heading)
                 progress=(tier+.48)/tier_count
-                t=min(.95,max(.18,.19+.77*(1-(1-progress)**1.24)+tier_offset+rng.uniform(-.015,.015)))
+                t=min(.95,max(.26,.26+.70*(1-(1-progress)**1.24)+tier_offset+rng.uniform(-.015,.015)))
                 stagger=.5 if tier%2 else 0
                 angle=(ordinal+stagger)*math.tau/len(members)+rng.uniform(-.065,.065)
                 reach_factor=(.35+.89*(1-tier_u)**1.12)*rng.uniform(.86,1.14)
@@ -1632,7 +1658,8 @@ class LPPreset(bpy.types.Operator):
             s.cluster_radius=.70; s.cluster_planes=3
             s.yaw=.22; s.pitch=.13; s.roll=.16
             s.size_min=.93; s.size_max=1.07
-        if s.preset=='Acacia': s.cluster_radius=.82
+        if s.preset=='Acacia':
+            s.length=4.6; s.cluster_radius=1.15
         if s.preset in {'Mountain Bonsai','Bonsai Tree'}: s.canopy_join=.4; s.cluster_radius=.58
         if s.preset=='Mangrove': s.roots=8
         if s.preset in {'Apple','Mango'}:
@@ -1817,6 +1844,7 @@ class LPPanel(bpy.types.Panel):
             distribution_controls+=['preview_enabled']
             if s.preview_enabled: distribution_controls+=['preview_ratio']
         variation=['color','tint_min','tint_max','bark','material_style','color_seed','texture_seed','rotation_seed','size_min','size_max','scale_axes','size_seed','axis_min','axis_max','yaw','pitch','roll','jitter','hue_min','hue_max','saturation_min','saturation_max','value_min','value_max','opacity_min','opacity_max','alpha_mode']
+        if s.kind in {'Tree','Foliage','Ivy'}: variation+=['stylized_normals','normal_bend_factor','normal_up_bias']
         if s.kind=='Prop' and s.prop in rocks.KINDS: variation+=['rock_color','rock_crack_color','rock_moss_color']
         groups=[('Shape',shape),('Distribution',distribution_controls),('Variation',variation),('Attachments',['target','snap_mode','snap_distance','snap_offset']),('Wind',['wind_controller','wind_use_controller','wind','wind_direction','wind_speed','wind_phase','wind_gust','wind_turbulence','wind_trunk','wind_branch','wind_cluster','wind_flutter','wind_response','wind_phase_offset']),('Build',['mid_ratio','low_ratio','mid_texture_scale','low_texture_scale','mid_triangle_limit','low_triangle_limit','flat_mode','resolution','with_normals','keep_wind','build_collection','bake_directory','game_export_dir'])]
         for title,props_ in groups:

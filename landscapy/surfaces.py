@@ -136,11 +136,14 @@ def build(entry, role, color, style, fallback, alpha='Soft', glow=0, foliage=Fal
             else: L(value,socket)
         return x.outputs[0]
     base=texture('image'); alpha_output=None
-    if base:
+    rgb=new('ShaderNodeRGB','Base Color'); rgb.outputs[0].default_value=(*color,1)
+    starter_bark=bool(base and not foliage and entry.image and getattr(entry,'plant_starter_image','')==entry.image.name)
+    if base and (foliage or (style!='Smooth' and not starter_bark) or (entry.customized and not starter_bark)):
         appearance=base.outputs['Color']
+        if not foliage: appearance=multiply(rgb.outputs[0],appearance,'Albedo Tint')
         if entry.use_alpha: alpha_output=base.outputs['Alpha']
     else:
-        rgb=new('ShaderNodeRGB','Base Color'); rgb.outputs[0].default_value=(*color,1); appearance=rgb.outputs[0]
+        appearance=rgb.outputs[0]
         if style!='Smooth':
             noise=new('ShaderNodeTexNoise','Stylized Pattern'); noise.inputs['Scale'].default_value=entry.procedural_scale; noise.inputs['Detail'].default_value=entry.detail
             L(mapping.outputs[0],noise.inputs['Vector']); ramp=new('ShaderNodeValToRGB','Pattern Contrast')

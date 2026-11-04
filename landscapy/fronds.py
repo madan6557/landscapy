@@ -143,13 +143,15 @@ def boughs(s, anchors, live=False):
                     factor=(1-.28*abs(fan))*(1-.13*layer)
                     roll=phase+fan*.65
                 height=min(s.frond_width,max(.15,length*(1-t)*1.30*factor))
+                ground_clearance = max(.15,(position.z-.20*s.height)/max(.1,-axis.z)) if axis.z<-.05 else height
+                height=min(height,ground_clearance)
                 if curtain:
                     # The card fills the interval below its limb. Limiting the
                     # drop also keeps the lower skirt above the ground.
-                    room=max(.15,(position.z-.12*s.height)/max(.1,-axis.z))
+                    room=max(.15,(position.z-.22*s.height)/max(.1,-axis.z))
                     span=(bridges[branch_id]*1.58 if bridge else max(.126*s.height,length*.74))
                     span*=1-.44*s.bough_clearance
-                    height=min(s.frond_width,room,span)
+                    height=min(height,room,span)
                 width=min(s.frond_leaf_width,height*(.76 if curtain else .98-.10*abs(fan)))
                 face=Quaternion(axis,roll)@(curtain_face if curtain else Vector((0,0,1)))
                 result.append((position,axis,{
@@ -203,9 +205,11 @@ def arrange(builder, s, anchors, pattern=None):
         if abs(direction.z) > .9:
             sag = (-face*.65 + sag*.35).normalized()
         def center(t):
-            return origin + direction * length * t + sag * (s.frond_droop * length * t * t)
+            droop_fac = max(0., t - .22)**2 / .61 if pattern == 'Banana' else t * t
+            return origin + direction * length * t + sag * (s.frond_droop * length * droop_fac)
         def tangent(t):
-            return (direction + sag * (2 * s.frond_droop * t)).normalized()
+            tangent_droop = (2 * max(0., t - .22) / .61) if pattern == 'Banana' else (2 * t)
+            return (direction + sag * (s.frond_droop * tangent_droop)).normalized()
         path = [center(i / s.frond_segments) for i in range(s.frond_segments + 1)]
         builder.tube(path, s.frond_stem_radius, s.frond_stem_sides, s.frond_stem_tip,branch_id=branch_id,branch_level=branch_level)
         if pattern == 'Banana':

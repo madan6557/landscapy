@@ -184,7 +184,7 @@ def _rebuild(owner,snapshot=None,category='ORNAMENT'):
     if category=='FRUIT' and s.kind=='Tree':
         if eligible and density>0: count=max(1,count)
         if s.fruit_type=='BANANA_BUNCH': count=1 if eligible else 0
-        elif s.fruit_type=='COCONUT_CROWN' and eligible: count=min(2,max(1,count))
+        elif s.fruit_type=='COCONUT_CROWN' and eligible: count=min(4,max(2,count))
     if count==0:
         clear(owner,category); attachment_status(s,category,'Area × density produces zero ornaments'); return
     dg=bpy.context.evaluated_depsgraph_get(); dg.update(); ev=owner.evaluated_get(dg); evaluated=ev.to_mesh()
@@ -333,16 +333,22 @@ class LPStarterOrnament(bpy.types.Operator):
         from . import Builder,mesh_object,material
         import bmesh
         owner=context.object
+        s=getattr(owner,'landscapy',None)
+        kind=self.kind
+        if s and self.category=='FRUIT' and kind=='BERRY':
+            kind={'BANANA_BUNCH':'BANANA','COCONUT_CROWN':'COCONUT','AXILLARY_POME':'APPLE',
+                  'GRAPE_CLUSTER':'GRAPE','HANGING_PANICLE':'MANGO','CONE_CLUSTER':'CONE',
+                  'AXILLARY_POD':'POD'}.get(getattr(s,'fruit_type',''),kind)
         collection=bpy.data.collections.get('Landscapy • Ornament Sources')
         if not collection: collection=bpy.data.collections.new('Landscapy • Ornament Sources'); context.scene.collection.children.link(collection)
         source_names={'BERRY':'Berry','APPLE':'Apple','GRAPE':'Grape Cluster','BANANA':'Banana Bunch',
                       'COCONUT':'Coconut Cluster','MANGO':'Mango Panicle','POD':'Pod','CONE':'Conifer Cone',
                       'FLOWER':'Flower','BUD':'Flower Bud'}
-        label=source_names[self.kind]
+        label=source_names[kind]
         fruit_colors={'BERRY':(.72,.025,.012),'APPLE':(.83,.16,.06),'GRAPE':(.36,.12,.58),
                       'BANANA':(.92,.66,.08),'COCONUT':(.42,.22,.08),'MANGO':(.94,.38,.04),
                       'POD':(.28,.52,.12),'CONE':(.42,.25,.10)}
-        if self.kind in fruit_colors:
+        if kind in fruit_colors:
             bm=bmesh.new()
             def ellipsoid(location,scale,subdivisions=2,direction=None):
                 result=bmesh.ops.create_icosphere(bm,subdivisions=subdivisions,radius=1)
@@ -395,7 +401,9 @@ class LPStarterOrnament(bpy.types.Operator):
                                 next_i=(i+1)%7
                                 bm.faces.new((lower[i],lower[next_i],upper[next_i],upper[i]))
                         bm.faces.new(rings[-1])
+                bud_start = len(bm.faces)
                 ellipsoid((.198,0,-.625),(.047,.043,.095),1)
+                for f in bm.faces[bud_start:]: f.material_index = 1
             elif self.kind=='COCONUT':
                 stem([(0,0,0),(0,0,-.06)],[.055,.045],7)
                 for i in range(5):
@@ -419,7 +427,11 @@ class LPStarterOrnament(bpy.types.Operator):
                     ellipsoid((math.cos(angle)*.10,math.sin(angle)*.10,z),(.09,.075,.13),1)
             mesh=bpy.data.meshes.new(label+' Source'); bm.to_mesh(mesh); bm.free()
             obj=bpy.data.objects.new('Landscapy Source • '+label,mesh); collection.objects.link(obj)
-            mesh.materials.append(material('Starter '+label,fruit_colors[self.kind]))
+            mesh.materials.append(material('Starter '+label,fruit_colors[kind]))
+            if kind=='BANANA':
+                mesh.materials.append(material('Starter Banana Bud',(.62,.16,.14)))
+            elif kind=='COCONUT':
+                mesh.materials[0]=material('Starter Coconut',(.32,.56,.22))
         else:
             builder=Builder()
             if self.kind=='FLOWER':
