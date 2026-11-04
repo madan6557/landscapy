@@ -379,6 +379,12 @@ class LPSettings(bpy.types.PropertyGroup):
     blade_edge_tear: FloatProperty(name='Blade Edge Tear',default=.28,min=0,max=.9,subtype='FACTOR',description='Retract random edge sections of Broad Lamina while keeping the midrib intact',update=live_distribution_changed)
     blade_tear_chance: FloatProperty(name='Tear Frequency',default=.38,min=0,max=1,subtype='FACTOR',description='Chance for an edge vertex to form a tear; left and right edges vary independently',update=live_distribution_changed)
     blade_tear_seed: IntProperty(name='Tear Seed',default=409,min=0,description='Changes blade edge tears without moving the fronds',update=live_distribution_changed)
+    palm_card_mode: EnumProperty(name='Palm Frond Card Mode',
+        items=[('AUTO','Auto (Single on Trees)','Single card on Trees, leaflets on Foliage controller'),
+               ('SINGLE','Single Continuous Card','One solid stylized blade per frond branch'),
+               ('LEAFLETS','Paired Leaflets','Separate individual leaflet cards along the rachis')],
+        default='AUTO', description='Choose between 1 solid continuous card per branch or separate leaflet cards',
+        update=live_distribution_changed)
     ivy_start: FloatVectorProperty(name='Growth Seed (Local)',size=3,default=(0,0,0),subtype='TRANSLATION',update=live_distribution_changed)
     ivy_direction: FloatVectorProperty(name='Growth Direction',size=3,default=(0,0,1),update=live_distribution_changed)
     ivy_step: FloatProperty(name='Growth Step',default=.08,min=.01,max=1,update=live_distribution_changed)
@@ -910,15 +916,26 @@ def card_steps(builder,s,points,mats,batch_size=128):
                 side=(2*u-1)**2
                 depth+=math.sin(math.pi*v)*(arch*h-fold*w*side)
             if spec and spec.get('blade'):
-                # A broad lamina keeps most of its width through the middle.
-                # Only the short petiole and tip sections narrow sharply.
-                x*=max(.025,min(1.,v*5)*min(1.,(1-v)*6)*(1-spec['taper']*v*.35))
-            if spec and spec.get('blade') and s.blade_edge_tear and u!=.5:
-                side=0 if u<.5 else 1
-                row=round(v*subdivisions)
-                tear_rng=random.Random(s.blade_tear_seed+i*1009+row*37+side*7919)
-                if tear_rng.random()<s.blade_tear_chance:
-                    x*=1-s.blade_edge_tear*tear_rng.uniform(.4,1.)*math.sin(math.pi*v)*abs(2*u-1)
+                if spec.get('palm'):
+                    # Stylized Palm Frond: 1 continuous blade per dahan (pelepah).
+                    # Calibrated to stylized reference: slender petiole, widens smoothly, tapers to pointed tip.
+                    w_profile=math.sin(math.pi*(v**.65))*(1.-spec.get('taper',.5)*v*.45)
+                    saw=abs(((v*7.)%1.)-.5)*2.
+                    edge_cut=.76+.24*saw
+                    x*=max(.02,w_profile*edge_cut)
+                    # Inverted-V roof fold along midrib (crease)
+                    side_dist=abs(2.*u-1.)
+                    depth+=((s.frond_droop*.35+.12)*w*(1.-side_dist**1.5))
+                else:
+                    # A broad lamina keeps most of its width through the middle.
+                    # Only the short petiole and tip sections narrow sharply.
+                    x*=max(.025,min(1.,v*5)*min(1.,(1-v)*6)*(1-spec['taper']*v*.35))
+                    if s.blade_edge_tear and u!=.5:
+                        side=0 if u<.5 else 1
+                        row=round(v*subdivisions)
+                        tear_rng=random.Random(s.blade_tear_seed+i*1009+row*37+side*7919)
+                        if tear_rng.random()<s.blade_tear_chance:
+                            x*=1-s.blade_edge_tear*tear_rng.uniform(.4,1.)*math.sin(math.pi*v)*abs(2*u-1)
             # Frond cards reverse winding to face outward; both styles use
             # positive valley values as a peak along the face normal.
             if s.card=='Valley': depth+=(1 if spec else -1)*valley*math.sin(math.pi*u)*math.sin(math.pi*v)*size
@@ -1116,11 +1133,11 @@ def tree(builder,s,ob,live_frond_anchors=None,live_bough=False):
                 # Successive leaves open outward as they mature. Keep the
                 # outer arches long and the newest leaves upright and short.
                 if trunk_form=='PSEUDOSTEM':
-                    reach_factor=(.68+.42*min(1.,age*1.35))*rng.uniform(.95,1.05)
-                    rise=1.05+1.85*u**1.45+rng.uniform(-.045,.045)
+                    reach_factor=(.53+.60*min(1.,age*1.46))*rng.uniform(.94,1.06)
+                    rise=.29+2.27*u**2.15+rng.uniform(-.045,.045)
                 else:
-                    reach_factor=(.75+.40*math.sin(math.pi*(.12+.72*age))**.72)*rng.uniform(.95,1.05)
-                    rise=.35+1.35*u**1.9+rng.uniform(-.04,.04)
+                    reach_factor=(.65+.56*math.sin(math.pi*(.08+.70*age))**.72)*rng.uniform(.95,1.05)
+                    rise=.17+1.60*u**2.35+rng.uniform(-.04,.04)
             elif conifer:
                 # Conifers grow in visible whorls. Each whorl is level around
                 # the leader. Branches are distributed around each tier rather
@@ -1779,10 +1796,60 @@ class LPLoadPreset(bpy.types.Operator):
         return {'FINISHED'}
     def invoke(self,context,event): context.window_manager.fileselect_add(self); return {'RUNNING_MODAL'}
 
+class LPSpawnLibraryTree(bpy.types.Operator):
+    bl_idname='landscapy.spawn_library_tree'; bl_label='Spawn Interactive Curve Tree'; bl_options={'REGISTER','UNDO'}
+    preset: EnumProperty(name='Tree Preset',
+        items=[('OAK','Stylized Oak / Broadleaf','Faceted solid leaf clumps'),
+               ('ANIME_DOME','Anime Dome Tree','Volumetric fluffy cloud dome puffs'),
+               ('PALM','Coconut Palm','1 continuous blade per frond with V-fold'),
+               ('BANANA','Banana Tree','Broad lamina blades with banana bunch'),
+               ('BONSAI','Mountain Bonsai','Crooked S-twist trunk with foliage'),
+               ('DEAD_TREE','Dead Bare Tree','Bare wood branches with no foliage')],
+        default='OAK')
+    gesture: EnumProperty(name='Trunk Gesture',
+        items=[('GENTLE','Gentle Lean','Natural broadleaf lean'),
+               ('PALM','Arching Palm','Sweeping curve'),
+               ('BANANA','Upright Stalk','Pseudostem gesture'),
+               ('BONSAI','Crooked S-Twist','Dramatic mountain bonsai'),
+               ('STRAIGHT','Straight','Upright leader')],
+        default='GENTLE')
+    def execute(self,context):
+        from . import trees
+        g=self.gesture
+        if self.preset=='PALM': g='PALM'
+        elif self.preset=='BANANA': g='BANANA'
+        elif self.preset=='BONSAI': g='BONSAI'
+        ob=trees.create_curve_trunk(f"{self.preset.title()}_Tree",gesture=g)
+        trees.setup_tree_modifiers(ob,preset=self.preset)
+        return {'FINISHED'}
+
+class LPSpawnLibraryProp(bpy.types.Operator):
+    bl_idname='landscapy.spawn_library_prop'; bl_label='Spawn Library Prop'; bl_options={'REGISTER','UNDO'}
+    prop_type: EnumProperty(name='Prop Type',
+        items=[('LP_Rock','Stylized Rock','Faceted low-poly boulder'),
+               ('LP_HollowTrunk','Hollow Trunk','Decayed hollow stump with exposed wood rim'),
+               ('LP_Mushroom','Stylized Mushroom','Cap + gills + stem with glow support'),
+               ('LP_ShelfMushroom','Tree Shelf Mushroom','Bracket oyster mushroom for tree bark'),
+               ('LP_BananaBunch','Banana Bunch','Yellow finger tiers with maroon bud'),
+               ('LP_CoconutCluster','Coconut Cluster','Coconut sphere cluster')],
+        default='LP_Rock')
+    def execute(self,context):
+        from . import library
+        ob=library.append_object(self.prop_type)
+        if ob:
+            context.view_layer.objects.active=ob; ob.select_set(True)
+        return {'FINISHED'}
+
 class LPPanel(bpy.types.Panel):
     bl_label='Landscapy • Stylized Nature'; bl_idname='LP_PT_main'; bl_space_type='VIEW_3D'; bl_region_type='UI'; bl_category='Landscapy'
     def draw(self,context):
-        l=self.layout; row=l.row()
+        l=self.layout
+        header,body=l.panel('LP_Library',default_closed=False); header.label(text='Stylized Library Assets',icon='ASSET_MANAGER')
+        if body:
+            row=body.row(align=True)
+            row.operator('landscapy.spawn_library_tree',text='Spawn Library Tree')
+            row.operator('landscapy.spawn_library_prop',text='Spawn Library Prop')
+        row=l.row()
         for kind in ['Tree','Foliage','Ivy']: row.operator('landscapy.create',text=kind).kind=kind
         row=l.row()
         for kind in ['Mushroom','Prop']: row.operator('landscapy.create',text=kind).kind=kind
@@ -1887,7 +1954,7 @@ class LPPanel(bpy.types.Panel):
                     box.prop(t,'weight'); box.prop(t,'aspect'); box.prop(t,'size'); box.prop(t,'pivot'); box.prop(t,'rotation'); box.prop(t,'uv_region'); surfaces.draw(box,t,'foliage',i); box.operator('landscapy.remove_texture').index=i
 
 from . import variants, game_export
-CLASSES=[surfaces.LPSurface,ornaments.LPOrnamentSlot,LPTexture,LPSettings,surfaces.LPLoadMap,surfaces.LPUseSurfaceLook,LPCreate,LPGenerate,LPRootGuides,LPPreset,LPPropPreset,LPFrondPreset,LPStarterTexture,LPImport,LPRemoveTexture,LPBind,LPUnbind,LPSnap,LPWind,LPSavePreset,LPLoadPreset,ornaments.LPAddOrnament,ornaments.LPRemoveOrnament,ornaments.LPGenerateOrnaments,ornaments.LPStarterOrnament,ornaments.LPPickBranch,variants.LPBuild,game_export.LPExportGame,LPPanel]
+CLASSES=[surfaces.LPSurface,ornaments.LPOrnamentSlot,LPTexture,LPSettings,surfaces.LPLoadMap,surfaces.LPUseSurfaceLook,LPCreate,LPGenerate,LPRootGuides,LPPreset,LPPropPreset,LPFrondPreset,LPStarterTexture,LPImport,LPRemoveTexture,LPBind,LPUnbind,LPSnap,LPWind,LPSavePreset,LPLoadPreset,LPSpawnLibraryTree,LPSpawnLibraryProp,ornaments.LPAddOrnament,ornaments.LPRemoveOrnament,ornaments.LPGenerateOrnaments,ornaments.LPStarterOrnament,ornaments.LPPickBranch,variants.LPBuild,game_export.LPExportGame,LPPanel]
 def register():
     for c in CLASSES: bpy.utils.register_class(c)
     bpy.types.Object.landscapy=PointerProperty(type=LPSettings)

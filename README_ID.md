@@ -1,6 +1,19 @@
-# Landscapy 0.58.0 — Development Preview
+# Landscapy 0.58.0 — Development Preview & Landscapy 2.0 Roadmap
 
-Addon Blender 5.2 untuk eksperimen landscaping stylized. **Ini implementasi awal yang dapat diinstal, bukan penyelesaian seluruh spesifikasi Landscapy.** Rincian pekerjaan yang masih terbuka ada di STATUS.md.
+Addon Blender 5.2 untuk eksperimen landscaping stylized: pohon, dedaunan, ivy, jamur, batu, batang pohon patah/berongga (hollow trunk), buah, dan ornamen.
+
+## Landscapy 2.0: Pendekatan Library-Based Stylized Nature
+Menjawab kebutuhan stylized art yang **mudah ditebak dan dikendalikan** (art-directed):
+- **100% Original Stylized Library (`assets/landscapy_library.blend`)**: Kumpulan komponen modular stylized (Solid Clumps, Dome Puffs, Palm Frond Blades, Banana Lamina, Valley Flowers, Fruits, Props) yang dirancang khusus untuk Landscapy tanpa mengopi asset pihak ketiga atau tekstur berhak cipta.
+- **Batang Kurva Interaktif**: Batang pohon digerakkan oleh Curve Spline interaktif di viewport, bukan rumus matematika acak yang sulit dikendalikan.
+- **Konsep Penuh Landscapy Tetap Dipertahankan**:
+  1. Hierarki tanaman: `Plant Type` -> `Trunk Type` -> `Leaf Type` -> `Fruit Type` -> `Ornament Type`.
+  2. Generator modular terpisah (Two-in-one): bisa generate pohon utuh, batang saja, atau daun saja; kontrol mesh/plane carpet, curve, atau spawn individual.
+  3. Tekstur kustom multi-slot dengan bobot dan randomisasi Hue, Saturation, Value, Size, Rotation, Opacity.
+  4. Ornamen bunga low-poly dengan quad 4-segitiga berpuncak/lembah (Valley Quad).
+  5. Sistem angin real-time (batang bergoyang, dahan melengkung, daun berkibar, buah/ornamen terikat otomatis mengikuti gerakan dahan).
+  6. Hybrid Render & Game (Build/Apply LODs): High, Mid, Low, Flat (billboard dengan normal pass) dalam koleksi terpisah.
+  7. Props lengkap: Batu faceted, batang berongga (hollow trunk), kayu patah/log, dan jamur (snapping, auto-bending menghadap atas, glow setting bawah/seluruh/atas mahkota).
 
 ## Instalasi
 

@@ -185,7 +185,10 @@ def arrange(builder, s, anchors, pattern=None):
         s['lp_frond_cards']=0; s['lp_frond_requested']=0
         return []
     stations = s.count
-    per = (1 if pattern == 'Banana' else
+    mode = getattr(s, 'palm_card_mode', 'AUTO')
+    is_palm_single = (pattern == 'Palm' and (mode == 'SINGLE' or (mode == 'AUTO' and s.kind == 'Tree')))
+    single_card = pattern == 'Banana' or is_palm_single
+    per = (1 if single_card else
            stations * (s.frond_whorl if pattern == 'Whorl' else 2 if pattern in {'Palm', 'Conifer', 'Opposite'} else 1))
     total = min(s.limit, len(anchors) * per)
     result = []
@@ -205,19 +208,21 @@ def arrange(builder, s, anchors, pattern=None):
         if abs(direction.z) > .9:
             sag = (-face*.65 + sag*.35).normalized()
         def center(t):
-            droop_fac = max(0., t - .22)**2 / .61 if pattern == 'Banana' else t * t
+            droop_fac = max(0., t - .22)**2 / .61 if pattern in {'Banana', 'Palm'} else t * t
             return origin + direction * length * t + sag * (s.frond_droop * length * droop_fac)
         def tangent(t):
-            tangent_droop = (2 * max(0., t - .22) / .61) if pattern == 'Banana' else (2 * t)
+            tangent_droop = (2 * max(0., t - .22) / .61) if pattern in {'Banana', 'Palm'} else (2 * t)
             return (direction + sag * (s.frond_droop * tangent_droop)).normalized()
         path = [center(i / s.frond_segments) for i in range(s.frond_segments + 1)]
         builder.tube(path, s.frond_stem_radius, s.frond_stem_sides, s.frond_stem_tip,branch_id=branch_id,branch_level=branch_level)
-        if pattern == 'Banana':
+        if single_card:
             start = s.frond_petiole
-            # One continuous blade, not a cloud of unrelated leaf clusters.
+            # One continuous blade/card per branch, following the 3D rachis spine.
+            frond_w = s.frond_width * (1.25 if pattern == 'Palm' else 1.0)
             result.append((center(start), direction, {
-                'frame': basis, 'width': s.frond_width, 'height': length * (1-start),
-                'pivot': 0., 'segments': max(4, s.frond_segments), 'blade': True,
+                'frame': basis, 'width': frond_w, 'height': length * (1-start),
+                'pivot': 0., 'segments': max(6, s.frond_segments), 'blade': True,
+                'palm': pattern == 'Palm',
                 'spine': [center(start+(1-start)*i/s.frond_segments)-center(start) for i in range(s.frond_segments+1)],
                 'taper': s.frond_taper,'branch_id':branch_id,'branch_level':branch_level,'branch_t':(start+1)*.5,
             }))
@@ -316,6 +321,8 @@ def draw(layout, s):
             body.prop(s, name, text=label) if label else body.prop(s, name)
         if s.pattern == 'Whorl':
             body.prop(s, 'frond_whorl')
+        if s.pattern == 'Palm':
+            body.prop(s, 'palm_card_mode')
         if s.pattern == 'Banana':
             for name in ('blade_edge_tear','blade_tear_chance','blade_tear_seed'):
                 body.prop(s,name)

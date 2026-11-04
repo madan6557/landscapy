@@ -1,5 +1,38 @@
 # Status terhadap rencana Landscapy
 
+## Landscapy 2.0 Architectural Plan & Directives (Library-Based Stylized Nature Toolkit)
+
+### 1. Directives & Core Philosophy
+- **Name & Goal**: **Landscapy** — A versatile, playful, and expressive stylized landscaping toolkit (NOT photorealistic).
+- **Stylized Shading**: Solid/flat color palettes with smooth volumetric normal blending. Absolutely ZERO muddy photorealistic grain or noisy procedural bark textures.
+- **Library-Based & Predictable (VRIKSH Inspiration, 100% Original Content)**:
+  - We do NOT copy any third-party assets, meshes, or textures from VRIKSH or external packs.
+  - All assets in `landscapy/assets/landscapy_library.blend` are 100% original, copyright-free, procedurally sculpted stylized components authored specifically for Landscapy.
+  - Replaces unruly, unpredictable generative math ("susah ditebak dan dikendalikan") with art-directed, predictable, interactive curve trunks and modular foliage collections.
+- **Original Landscapy Concept Fully Preserved**:
+  - The entire existing hierarchy: `Plant Type` -> `Trunk Type` -> `Leaf Type` -> `Fruit Type` -> `Ornament Type`.
+  - Full two-in-one generator: trunk and leaves can be generated together or separately.
+  - Control mesh customization: Volumeless plane spawns carpet/grass; Curve/path guides; Manual individual spawning.
+  - Ivy: Curve/path or plane controller.
+  - Multi-texture RGBA slots with weights and full randomization (Hue, Saturation, Value, Size, Orientation/Rotation, Opacity).
+  - Valley quad: 4-triangle quad with sunken center valley/peak for volume in low-poly flowers and foliage.
+  - Wind animation: Real-time trunk sway, branch movement, leaf flutter, automatic ornament binding.
+  - Hybrid Render & Game / Apply LODs: One-click export into 4 separate collections (`LOD_High`, `LOD_Mid`, `LOD_Low`, `LOD_Flat`), with batch apply for groups/collections.
+  - Props & Obstacles: Faceted stylized rocks, hollow trunks, cut trunks/fallen logs, vines.
+  - Mushrooms: Cap + gills + stem, clusters, tree oyster/shelf bracket mushrooms that snap to trunk, glowing mushrooms (under cap / whole / top cap only with custom color & intensity), auto-bending upwards with threshold.
+
+### 2. Dual-Engine Architecture
+1. **Engine A (Classic Procedural & Mesh-Controlled Generator)**:
+   - Full generator suite (`Tree`, `Foliage`, `Ivy`, `Mushroom`, `Prop`), fully covered by existing 48+ unit tests (`smoke.py`, `frond_checks.py`, `plant_form_checks.py`).
+   - Palm Frond: 1 continuous notched card per dahan with inverted-V roof crease (satisfies single-blade requirement).
+2. **Engine B (Interactive Curve Trunks & Library Geometry Nodes Engine)**:
+   - Powered by `landscapy/assets/landscapy_library.blend`, `landscapy/library.py`, and `landscapy/trees.py`.
+   - Curve trunks that can be interactively edited in Edit Mode.
+   - Modular foliage collections: `LeafSolid` (faceted clumps), `LeafDome` (anime cloud puffs), `LeafPalm` (continuous notched blades), `LeafBanana` (broad lamina), `Flowers` (4-triangle valley flowers), `Fruits` (banana bunch, coconut cluster), `Props` (rock, hollow trunk, mushrooms).
+   - Driven by `LP_TreeEngine` Geometry Nodes with real-time viewport wind.
+
+---
+
 ## 0.58.0 Preview
 
 - Pine mengisi pucuk dan semua tingkat cabang utama sebelum menambah rumpun kedua pada satu tingkat. Kartu utama dan pengisi diposisikan lebih jauh dari batang agar pangkal cabang terlihat di sela lapisan. Sisi kartu melengkung turun dari tulang tengah dan tetap memakai satu pulau UV dengan 16 quad per kartu pada preset. Sebelas pemeriksaan TreeBough mencakup batas kartu, Trunk Clearance, Side Droop, paritas mesh/live, angin, dan save/reopen.
